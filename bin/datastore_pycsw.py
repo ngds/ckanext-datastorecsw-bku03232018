@@ -7,7 +7,6 @@ import datetime
 import pycsw.config
 import pycsw.repository
 
-ckan_url = 'http://127.0.0.1:5000/'
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)

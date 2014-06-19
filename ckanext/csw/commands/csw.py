@@ -1,7 +1,7 @@
 import sys
 import logging
 
-from bin import ckan_pycsw
+from bin import datastore_pycsw
 
 from paste import script
 log = logging.getLogger(__name__)
@@ -51,17 +51,17 @@ option:
             self.parser.print_usage()
             sys.exit(1)
 
-        config = ckan_pycsw._load_config(self.options.pycsw_config)
+        config = datastore_pycsw._load_config(self.options.pycsw_config)
         cmd = self.args[0]
         if cmd == 'setup':
-            ckan_pycsw.setup_db(config)
+            datastore_pycsw.setup_db(config)
         elif cmd in ['load', 'set_keywords']:
             ckan_url = self.options.ckan_url.rstrip('/') + '/'
             if cmd == 'load':
-                ckan_pycsw.load(config, ckan_url)
+                datastore_pycsw.load(config, ckan_url)
             else:
-                ckan_pycsw.set_keywords(self.options.pycsw_config, config, ckan_url)
+                datastore_pycsw.set_keywords(self.options.pycsw_config, config, ckan_url)
         elif cmd == 'clear':
-            ckan_pycsw.clear(config)
+            datastore_pycsw.clear(config)
         else:
             print 'Command %s not recognized' % cmd
