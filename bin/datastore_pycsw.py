@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, re
 import argparse
 from ConfigParser import SafeConfigParser
 import requests
@@ -28,6 +28,31 @@ def setup_db(pycsw_config):
         create_plpythonu_functions=False,
         extra_columns=ckan_columns)
 
+def parse_datastore(ckan_url):
+    api_query = 'api/3/action/datastore_search?resource_id=_table_metadata'
+    url = ckan_url + api_query
+    response = requests.get(url)
+    listing = response.json()
+    if not isinstance(listing, dict):
+        raise RuntimeError, 'Wrong API response: %s' % listing
+    results = listing.get('results')
+    if not results:
+        break
+    return results
+
+
+def parse_resource(resource_id, ckan_url):
+    api_query = 'api/3/action/resource_show?=%s' % resource_id
+    url = ckan_url + api_query
+    response = requests.get(url)
+    listing = response.json()
+    if not isinstance(listing, dict):
+        raise RuntimeError, 'Wrong API response: %s' % listing
+    result = listing.get('result')
+    url = result.get('url')
+    package_id = re.findall('dataset/(.*?)/resource', url, re.DOTALL)
+    return package_id
+
 def load(pycsw_config, ckan_url):
     database = pycsw_config.get('repository', 'database')
     table_name = pycsw_config.get('repository', 'table', 'records')
@@ -37,26 +62,31 @@ def load(pycsw_config, ckan_url):
 
     log.info('Started gathering CKAN datasets identifiers: {0}'.format(str(datetime.datetime.now())))
 
-    query = 'api/search/dataset?qjson={"fl":"id,metadata_modified,extras_metadata_source", "q":"id:' \
-            '[\\"\\" TO *]", "limit":1000, "start":%s}'
-    start = 0
     gathered_records = {}
 
-    while True:
-        url = ckan_url + query % start
+    results = parse_datastore(ckan_url)
 
+    package_ids = []
+    for result in results:
+        package_id = parse_resource(result.get('name'), ckan_url)
+        if not package_id in package_ids:
+            package_ids.append(package_id)
+
+    for id in package_ids:
+        api_query = 'api/3/action/package_show?=%s' % id
+        url = ckan_url + api_query
         response = requests.get(url)
         listing = response.json()
         if not isinstance(listing, dict):
             raise RuntimeError, 'Wrong API response: %s' % listing
-        results = listing.get('results')
-        if not results:
-            break
-        for result in results:
-            gathered_records[result['id']] = {
-                'metadata_modified': result['metadata_modified'],
-                'id': result['id'],
-            }
+        result = listing.get('result')
+        gathered_records[result['id']] = {
+            'metadata_modified': result['metadata_modified'],
+            'id': result['id'],
+        }
+
+
+
 
         start = start + 1000
         log.debug('Gathered %s' % start)
