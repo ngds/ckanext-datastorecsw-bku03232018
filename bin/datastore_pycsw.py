@@ -4,9 +4,9 @@ from ConfigParser import SafeConfigParser
 import requests
 import logging
 import datetime
+from pycsw import util, repository
 import pycsw.config
-import pycsw.repository
-
+import pycsw.admin
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def load(pycsw_config, ckan_url):
     table_name = pycsw_config.get('repository', 'table', 'records')
 
     context = pycsw.config.StaticContext()
-    repo = pycsw.repository.Repository(database, context, table=table_name)
+    repo = repository.Repository(database, context, table=table_name)
 
     log.info('Started gathering CKAN datasets identifiers: {0}'.format(str(datetime.datetime.now())))
 
@@ -67,6 +67,63 @@ def load(pycsw_config, ckan_url):
     ))
 
     existing_records = {}
+
+    query = repo.session.query(repo.dataset.ckan_id, repo.dataset.ckan_modified)
+    for row in query:
+        existing_records[row[0]] = row[1]
+    repo.session.close()
+
+    new = set(gathered_records) - set(existing_records)
+    deleted = set(existing_records) - set(gathered_records)
+    changed = set()
+
+    for key in set(gathered_records) & set(existing_records):
+        if gathered_records[key]['metadata_modified'] > existing_records[key]:
+            changed.add(key)
+
+    for ckan_id in deleted:
+        try:
+            repo.session.begin()
+            repo.session.query(repo.dataset.ckan_id).filter_by(
+                ckan_id = ckan_id
+            ).delete()
+            log.info('Deleted %s' % ckan_id)
+            repo.session.commit()
+        except Exception, err:
+            repo.session.rollback()
+            raise
+
+    for ckan_id in new:
+        ckan_info = gathered_records[ckan_id]
+        record = get_record(context, repo, ckan_url, ckan_id, ckan_info)
+        if not record:
+            log.info('Skipped record %s' % ckan_id)
+            continue
+        try:
+            repo.insert(record, 'local', util.get_today_and_now())
+            log.info('Inserted %s' % ckan_id)
+        except Exception, err:
+            log.error('ERROR: not inserted %s Error:%s' % (ckan_id, err))
+
+    for ckan_id in changed:
+        ckan_info = gathered_records[ckan_id]
+        record = get_record(context, repo, ckan_url, ckan_id, ckan_info)
+        if not record:
+            continue
+        update_dict = dict([getattr(repo.dataset, key),
+                            getattr(record, key)) \
+            for key in record.__dict__.keys() if key != '_sa_instance_state'])
+        try:
+            repo.session.begin()
+            repo.session.query(repo.dataset).filter_by(
+                ckan_id = ckan_id
+            ).update(update_dict)
+            repo.session.commit()
+            log.info('Changed %s' % ckan_id)
+        except Exception, err:
+            repo.session.rollback()
+            raise RuntimeError, 'ERROR: %s' % str(err)
+
 
 def _load_config(file_path):
     abs_path = os.path.abspath(file_path)
