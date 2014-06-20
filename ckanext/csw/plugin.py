@@ -1,8 +1,10 @@
 import ckan.plugins as p
 import ckanext.csw.logic.action as action
 
+
 class DatastoreCSW(p.SingletonPlugin):
     p.implements(p.IConfigurable)
+    p.implements(p.IConfigurer, inherit=True)
     p.implements(p.IActions)
     p.implements(p.IAuthFunctions)
     p.implements(p.IRoutes, inherit=True)
@@ -11,6 +13,10 @@ class DatastoreCSW(p.SingletonPlugin):
 
     def configure(self, config):
         return
+
+    def update_config(self, config):
+        templates = 'templates'
+        p.toolkit.add_template_directory(config, templates)
 
     def before_map(self, map):
         controller = 'ckanext.csw.controllers.view:ViewController'
@@ -21,6 +27,7 @@ class DatastoreCSW(p.SingletonPlugin):
     def get_actions(self):
         return {
             'datastore_package_show': action.datastore_package_show,
+            'iso_metadata': action.iso_metadata,
         }
 
     def get_auth_functions(self):
