@@ -30,28 +30,39 @@ def setup_db(pycsw_config):
 
 def parse_datastore(ckan_url):
     api_query = 'api/3/action/datastore_search?resource_id=_table_metadata'
+    ignore_names = ['_table_metadata', 'geography_columns', 'geometry_columns', 'spatial_ref_sys']
     url = ckan_url + api_query
     response = requests.get(url)
     listing = response.json()
     if not isinstance(listing, dict):
         raise RuntimeError, 'Wrong API response: %s' % listing
-    results = listing.get('results')
-    if not results:
-        break
-    return results
-
+    results = listing['result']['records']
+    resource_names = []
+    # Should use a list/dict comprehension here
+    for result in results:
+        if not result['name'] in ignore_names:
+            resource_names.append(result['name'])
+    return resource_names
 
 def parse_resource(resource_id, ckan_url):
-    api_query = 'api/3/action/resource_show?=%s' % resource_id
+    '''
+    CKAN's search API doesn't allow querying packages by their resources.  Thankfully,
+    each resource is returned with a URL which contains the package id between the
+    paths "dataset" and "resource", (at least for datastore items) so we can use a RegEx
+    to figure out what the package of a resource is.  This is not an ideal solution, but
+    it's the cleanest way to solve the problem until the CKAN team decides to organize
+    their data in a less authoritative manner.
+    '''
+    api_query = 'api/3/action/resource_show?id=%s' % resource_id
     url = ckan_url + api_query
     response = requests.get(url)
     listing = response.json()
     if not isinstance(listing, dict):
         raise RuntimeError, 'Wrong API response: %s' % listing
-    result = listing.get('result')
-    url = result.get('url')
-    package_id = re.findall('dataset/(.*?)/resource', url, re.DOTALL)
-    return package_id
+    package_url = listing['result']['url']
+    # Here's that RegEx.  Ugh.
+    package_id = re.findall('dataset/(.*?)/resource', package_url, re.DOTALL)
+    return package_id[0]
 
 def load(pycsw_config, ckan_url):
     database = pycsw_config.get('repository', 'database')
@@ -65,37 +76,33 @@ def load(pycsw_config, ckan_url):
     gathered_records = {}
 
     results = parse_datastore(ckan_url)
-
     package_ids = []
     for result in results:
-        package_id = parse_resource(result.get('name'), ckan_url)
+        package_id = parse_resource(result, ckan_url)
         if not package_id in package_ids:
             package_ids.append(package_id)
 
     for id in package_ids:
-        api_query = 'api/3/action/package_show?=%s' % id
+        api_query = 'api/3/action/package_show?id=%s' % id
         url = ckan_url + api_query
         response = requests.get(url)
         listing = response.json()
         if not isinstance(listing, dict):
             raise RuntimeError, 'Wrong API response: %s' % listing
-        result = listing.get('result')
+        result = listing['result']
         gathered_records[result['id']] = {
             'metadata_modified': result['metadata_modified'],
             'id': result['id'],
         }
 
-
-
-
-        start = start + 1000
-        log.debug('Gathered %s' % start)
+    print gathered_records
 
     log.info('Gather finished ({0} datasets): {1}'.format(
         len(gathered_records.keys()),
         str(datetime.datetime.now())
     ))
 
+    '''
     existing_records = {}
 
     query = repo.session.query(repo.dataset.ckan_id, repo.dataset.ckan_modified)
@@ -153,7 +160,7 @@ def load(pycsw_config, ckan_url):
         except Exception, err:
             repo.session.rollback()
             raise RuntimeError, 'ERROR: %s' % str(err)
-
+    '''
 
 def _load_config(file_path):
     abs_path = os.path.abspath(file_path)
