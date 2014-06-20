@@ -95,14 +95,12 @@ def load(pycsw_config, ckan_url):
             'id': result['id'],
         }
 
-    print gathered_records
 
     log.info('Gather finished ({0} datasets): {1}'.format(
         len(gathered_records.keys()),
         str(datetime.datetime.now())
     ))
 
-    '''
     existing_records = {}
 
     query = repo.session.query(repo.dataset.ckan_id, repo.dataset.ckan_modified)
@@ -147,9 +145,9 @@ def load(pycsw_config, ckan_url):
         record = get_record(context, repo, ckan_url, ckan_id, ckan_info)
         if not record:
             continue
-        update_dict = dict([getattr(repo.dataset, key),
-                            getattr(record, key)) \
-            for key in record.__dict__.keys() if key != '_sa_instance_state'])
+        update_dict = dict([(getattr(repo.dataset, key), getattr(record, key))
+                            for key in record.__dict__.keys() if key != '_sa_instance_state'])
+
         try:
             repo.session.begin()
             repo.session.query(repo.dataset).filter_by(
@@ -160,7 +158,6 @@ def load(pycsw_config, ckan_url):
         except Exception, err:
             repo.session.rollback()
             raise RuntimeError, 'ERROR: %s' % str(err)
-    '''
 
 def _load_config(file_path):
     abs_path = os.path.abspath(file_path)

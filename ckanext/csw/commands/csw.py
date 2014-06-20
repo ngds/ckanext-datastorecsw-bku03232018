@@ -21,15 +21,15 @@ class Pycsw(script.command.Command):
     ckan-pycsw clear [-p]
         Removes all records from the pycsw table.
 
-All commands require the pycsw configuration file. By default it will try
-to find a file called 'default.cfg' in the same directory, but you'll
-probably need to provide the actual location with the -p option.
+    All commands require the pycsw configuration file. By default it will try
+    to find a file called 'default.cfg' in the same directory, but you'll
+    probably need to provide the actual location with the -p option.
 
     paster ckan-pycsw setup -p /etc/ckan/default/pycsw.cfg
 
-The load command requires a CKAN URL from where the datasets will be pulled.
-By default it is set to 'http://localhost', but you can define it with the -u
-option:
+    The load command requires a CKAN URL from where the datasets will be pulled.
+    By default it is set to 'http://localhost', but you can define it with the -u
+    option:
 
     paster ckan-pycsw load -p /etc/ckan/default/pycsw.cfg -u http://ckan.instance.org
 
