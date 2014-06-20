@@ -22,6 +22,8 @@ setup(
     install_requires=[],
     entry_points=\
     """
+    [ckan.plugins]
+    datastorecsw=ckanext.csw.plugin:DatastoreCSW
     [paste.paster_command]
     datastore-pycsw=ckanext.csw.commands.csw:Pycsw
     """,
