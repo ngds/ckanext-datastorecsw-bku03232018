@@ -1,12 +1,13 @@
-import os, sys, re
+import os, sys, re, io
 import argparse
 from ConfigParser import SafeConfigParser
 import requests
 import logging
 import datetime
-from pycsw import util, repository
+from pycsw import util, repository, metadata
 import pycsw.config
 import pycsw.admin
+from lxml import etree
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -158,6 +159,25 @@ def load(pycsw_config, ckan_url):
         except Exception, err:
             repo.session.rollback()
             raise RuntimeError, 'ERROR: %s' % str(err)
+
+def get_record(context, repo, ckan_url, ckan_id, ckan_info):
+    query = ckan_url + 'datastore_package/object/%s'
+    url = query % ckan_info['id']
+    response = requests.get(url)
+
+    try:
+        xml = etree.parse(io.BytesIO(response.content))
+    except Exception, err:
+        log.error('Could not pass xml doc from %s, Error: %s' % (ckan_id, err))
+        return
+
+    try:
+        record = metadata.parse_record(context, xml, repo)[0]
+    except Exception, err:
+        log.error('Could not extract metadata from %s, Error: %s' % (ckan_id, err))
+        return
+
+    return record
 
 def _load_config(file_path):
     abs_path = os.path.abspath(file_path)
