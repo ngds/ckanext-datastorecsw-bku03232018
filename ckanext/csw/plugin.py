@@ -29,7 +29,7 @@ class DatastoreCSW(p.SingletonPlugin):
     # Set a controller/route for generating ISO XML pages
     def before_map(self, map):
         controller = 'ckanext.csw.controllers.view:ViewController'
-        map.connect('datastore_package_show', '/datastore_package/object/:id',
+        map.connect('datastore_package_show', '/package_iso/object/:id',
                     controller=controller, action='show_object')
         return map
 

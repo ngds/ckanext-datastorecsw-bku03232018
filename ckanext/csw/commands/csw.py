@@ -7,31 +7,28 @@ log = logging.getLogger(__name__)
 
 class Pycsw(script.command.Command):
     """
-    Manages the CKAN-pycsw integration
+    Manages the CKAN datastore-pycsw integration
 
-    ckan-pycsw setup [-p]
+    datastore-pycsw setup [-p]
         Setups the necessary pycsw table on the db.
 
-    ckan-pycsw set_keywords [-p] [-u]
-        Sets pycsw server metadata keywords from CKAN site tag list.
-
-    ckan-pycsw load [-p] [-u]
+    datastore-pycsw load [-p] [-u]
         Loads CKAN datasets as records into the pycsw db.
 
-    ckan-pycsw clear [-p]
+    datastore-pycsw clear [-p]
         Removes all records from the pycsw table.
 
     All commands require the pycsw configuration file. By default it will try
     to find a file called 'default.cfg' in the same directory, but you'll
     probably need to provide the actual location with the -p option.
 
-    paster ckan-pycsw setup -p /etc/ckan/default/pycsw.cfg
+    paster datastore-pycsw setup -p /etc/ckan/default/pycsw.cfg
 
     The load command requires a CKAN URL from where the datasets will be pulled.
     By default it is set to 'http://localhost', but you can define it with the -u
     option:
 
-    paster ckan-pycsw load -p /etc/ckan/default/pycsw.cfg -u http://ckan.instance.org
+    paster datastore-pycsw load -p /etc/ckan/default/pycsw.cfg -u http://ckan.instance.org
     """
 
     parser = script.command.Command.standard_parser(verbose=True)
@@ -54,12 +51,9 @@ class Pycsw(script.command.Command):
         cmd = self.args[0]
         if cmd == 'setup':
             datastore_pycsw.setup_db(config)
-        elif cmd in ['load', 'set_keywords']:
+        elif cmd == 'load':
             ckan_url = self.options.ckan_url.rstrip('/') + '/'
-            if cmd == 'load':
-                datastore_pycsw.load(config, ckan_url)
-            else:
-                datastore_pycsw.set_keywords(self.options.pycsw_config, config, ckan_url)
+            datastore_pycsw.load(config, ckan_url)
         elif cmd == 'clear':
             datastore_pycsw.clear(config)
         else:

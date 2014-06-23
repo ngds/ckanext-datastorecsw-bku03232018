@@ -121,7 +121,7 @@ def load(pycsw_config, ckan_url):
         @param ckan_info: Package data
         @return: ISO 19139 XML data
         """
-        query = ckan_url + 'datastore_package/object/%s'
+        query = ckan_url + 'package_iso/object/%s'
         url = query % ckan_info['id']
         response = requests.get(url)
         try:
