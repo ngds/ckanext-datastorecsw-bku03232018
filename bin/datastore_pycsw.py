@@ -58,11 +58,19 @@ def load(pycsw_config, ckan_url):
     package ID of a datastored resource is, builds a URL to scrape each package's ISO XML record and then
     inserts the XML as a record in the PyCSW database.
 
-    :param pycsw_config:
-    :param ckan_url:
-    :return:
+    @param pycsw_config: pycsw.cfg file that should have been configured upon installing
+    PyCSW.  Should contain auth information about the database to connect to.
+    @param ckan_url: e.g http://127.0.0.1:5000
     """
+
     def parse_datastore(ckan_url):
+        """
+        Scrape and return every resource ID in the datastore database, accessing the information through
+        CKAN's REST API.
+
+        @param ckan_url: e.g. http://127.0.0.1:5000
+        @return: a list of datastored resource object IDs
+        """
         api_query = 'api/3/action/datastore_search?resource_id=_table_metadata'
         ignore_names = ['_table_metadata', 'geography_columns', 'geometry_columns', 'spatial_ref_sys']
         url = ckan_url + api_query
@@ -86,6 +94,9 @@ def load(pycsw_config, ckan_url):
         to figure out what the package of a resource is.  This is not an ideal solution, but
         it's the cleanest way to solve the problem until the CKAN team decides to organize
         their data in a less authoritative manner.
+
+        @param resource_id: the id of a datastored resource object
+        @param ckan_url: http://127.0.0.1:5000
         """
         api_query = 'api/3/action/resource_show?id=%s' % resource_id
         url = ckan_url + api_query
@@ -98,6 +109,35 @@ def load(pycsw_config, ckan_url):
         package_id = re.findall('dataset/(.*?)/resource', package_url, re.DOTALL)
         return package_id[0]
 
+    def get_record(context, repo, ckan_url, ckan_id, ckan_info):
+        """
+        Hit the CKAN REST API for an ISO 19139 XML representation of a package with data
+        uploaded into the datastore.
+
+        @param context: Vanilla-CKAN auth noise
+        @param repo: PyCSW repository (database)
+        @param ckan_url: e.g. http://127.0.0.1:5000
+        @param ckan_id: Package ID
+        @param ckan_info: Package data
+        @return: ISO 19139 XML data
+        """
+        query = ckan_url + 'datastore_package/object/%s'
+        url = query % ckan_info['id']
+        response = requests.get(url)
+        try:
+            xml = etree.parse(io.BytesIO(response.content))
+        except Exception, err:
+            log.error('Could not pass xml doc from %s, Error: %s' % (ckan_id, err))
+            return
+        try:
+            record = metadata.parse_record(context, xml, repo)[0]
+        except Exception, err:
+            log.error('Could not extract metadata from %s, Error: %s' % (ckan_id, err))
+            return
+        return record
+
+
+    # Now that we've defined the local functions, let's actually run the parent function
     database = pycsw_config.get('repository', 'database')
     table_name = pycsw_config.get('repository', 'table', 'records')
 
@@ -192,32 +232,21 @@ def load(pycsw_config, ckan_url):
             repo.session.rollback()
             raise RuntimeError, 'ERROR: %s' % str(err)
 
-def get_record(context, repo, ckan_url, ckan_id, ckan_info):
-    query = ckan_url + 'datastore_package/object/%s'
-    url = query % ckan_info['id']
-    response = requests.get(url)
-
-    try:
-        xml = etree.parse(io.BytesIO(response.content))
-    except Exception, err:
-        log.error('Could not pass xml doc from %s, Error: %s' % (ckan_id, err))
-        return
-
-    try:
-        record = metadata.parse_record(context, xml, repo)[0]
-    except Exception, err:
-        log.error('Could not extract metadata from %s, Error: %s' % (ckan_id, err))
-        return
-
-    return record
-
 def _load_config(file_path):
+    """
+    Lifted from ckanext-spatial/bin/ckan_pycsw.py
+    Loads the PyCSW configuration file.
+
+    @param file_path: location of configuration file in the file system
+    @return: configuration object
+    """
     abs_path = os.path.abspath(file_path)
     if not os.path.exists(abs_path):
         raise AssertionError('pycsw config file {0} does not exist.'.format(abs_path))
     config = SafeConfigParser()
     config.read(abs_path)
     return config
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
