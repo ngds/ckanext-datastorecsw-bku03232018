@@ -26,7 +26,6 @@ class DatastoreCSW(p.SingletonPlugin):
 
     def get_actions(self):
         return {
-            'datastore_package_show': action.datastore_package_show,
             'iso_metadata': action.iso_metadata,
         }
 

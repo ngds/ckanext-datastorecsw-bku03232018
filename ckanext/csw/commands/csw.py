@@ -1,13 +1,13 @@
 import sys
 import logging
-
 from bin import datastore_pycsw
-
 from paste import script
+
 log = logging.getLogger(__name__)
 
 class Pycsw(script.command.Command):
-    '''Manages the CKAN-pycsw integration
+    """
+    Manages the CKAN-pycsw integration
 
     ckan-pycsw setup [-p]
         Setups the necessary pycsw table on the db.
@@ -32,8 +32,7 @@ class Pycsw(script.command.Command):
     option:
 
     paster ckan-pycsw load -p /etc/ckan/default/pycsw.cfg -u http://ckan.instance.org
-
-    '''
+    """
 
     parser = script.command.Command.standard_parser(verbose=True)
     parser.add_option('-p', '--pycsw-config', dest='pycsw_config',

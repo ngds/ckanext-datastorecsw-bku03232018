@@ -1,71 +1,103 @@
 import os, sys, re, io
 import argparse
-from ConfigParser import SafeConfigParser
 import requests
 import logging
 import datetime
-from pycsw import util, repository, metadata
 import pycsw.config
 import pycsw.admin
 from lxml import etree
+from pycsw import util, repository, metadata
+from ConfigParser import SafeConfigParser
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
 
 def setup_db(pycsw_config):
+    """
+    Lifted from ckanext-spatial/bin/ckan_pycsw.py
+    Initializes a PyCSW database in an empty database.
 
+    @param pycsw_config: pycsw.cfg file that should have been configured upon installing
+    PyCSW.  Should contain auth information about the database to connect to.
+    """
     from sqlalchemy import Column, Text
-
     database = pycsw_config.get('repository', 'database')
     table_name = pycsw_config.get('repository', 'table', 'records')
-
     ckan_columns = [
         Column('ckan_id', Text, index=True),
         Column('ckan_modified', Text),
     ]
-
     pycsw.admin.setup_db(database,
         table_name, '',
         create_plpythonu_functions=False,
         extra_columns=ckan_columns)
 
-def parse_datastore(ckan_url):
-    api_query = 'api/3/action/datastore_search?resource_id=_table_metadata'
-    ignore_names = ['_table_metadata', 'geography_columns', 'geometry_columns', 'spatial_ref_sys']
-    url = ckan_url + api_query
-    response = requests.get(url)
-    listing = response.json()
-    if not isinstance(listing, dict):
-        raise RuntimeError, 'Wrong API response: %s' % listing
-    results = listing['result']['records']
-    resource_names = []
-    # Should use a list/dict comprehension here
-    for result in results:
-        if not result['name'] in ignore_names:
-            resource_names.append(result['name'])
-    return resource_names
+def clear_db(pycsw_config):
+    """
+    Lifted from ckanext-spatial/bin/ckan_pycsw.py
+    Clears a PyCSW database, but does not delete the database itself.
 
-def parse_resource(resource_id, ckan_url):
-    '''
-    CKAN's search API doesn't allow querying packages by their resources.  Thankfully,
-    each resource is returned with a URL which contains the package id between the
-    paths "dataset" and "resource", (at least for datastore items) so we can use a RegEx
-    to figure out what the package of a resource is.  This is not an ideal solution, but
-    it's the cleanest way to solve the problem until the CKAN team decides to organize
-    their data in a less authoritative manner.
-    '''
-    api_query = 'api/3/action/resource_show?id=%s' % resource_id
-    url = ckan_url + api_query
-    response = requests.get(url)
-    listing = response.json()
-    if not isinstance(listing, dict):
-        raise RuntimeError, 'Wrong API response: %s' % listing
-    package_url = listing['result']['url']
-    # Here's that RegEx.  Ugh.
-    package_id = re.findall('dataset/(.*?)/resource', package_url, re.DOTALL)
-    return package_id[0]
+    @param pycsw_config: pycsw.cfg file that should have been configured upon installing
+    PyCSW.  Should contain auth information about the database to connect to.
+    """
+    from sqlalchemy import create_engine, Metadata, Table
+    database = pycsw_config.get('repository', 'database')
+    table_name = pycsw_config.get('repository', 'table', 'record')
+    log.debug('Creating engine')
+    engine = create_engine(database)
+    records = Table(table_name, Metadata(engine))
+    records.delete().execute()
+    log.info('Table cleared')
 
 def load(pycsw_config, ckan_url):
+    """
+    Take ISO 19139 XML data from a CKAN package and insert it into the PyCSW database.  This function
+    runs selectively, meaning that it will only return packages for resources in the CKAN datastore
+    database.  It builds a URL for querying the datastore, returns a list of the datastore resource IDs,
+    builds URLs for querying the resources, runs a regular expression to determine what the
+    package ID of a datastored resource is, builds a URL to scrape each package's ISO XML record and then
+    inserts the XML as a record in the PyCSW database.
+
+    :param pycsw_config:
+    :param ckan_url:
+    :return:
+    """
+    def parse_datastore(ckan_url):
+        api_query = 'api/3/action/datastore_search?resource_id=_table_metadata'
+        ignore_names = ['_table_metadata', 'geography_columns', 'geometry_columns', 'spatial_ref_sys']
+        url = ckan_url + api_query
+        response = requests.get(url)
+        listing = response.json()
+        if not isinstance(listing, dict):
+            raise RuntimeError, 'Wrong API response: %s' % listing
+        results = listing['result']['records']
+        resource_names = []
+        # Should use a list/dict comprehension here
+        for result in results:
+            if not result['name'] in ignore_names:
+                resource_names.append(result['name'])
+        return resource_names
+
+    def parse_resource(resource_id, ckan_url):
+        """
+        CKAN's search API doesn't allow querying packages by their resources.  Thankfully,
+        each resource is returned with a URL which contains the package id between the
+        paths "dataset" and "resource", (at least for datastore items) so we can use a RegEx
+        to figure out what the package of a resource is.  This is not an ideal solution, but
+        it's the cleanest way to solve the problem until the CKAN team decides to organize
+        their data in a less authoritative manner.
+        """
+        api_query = 'api/3/action/resource_show?id=%s' % resource_id
+        url = ckan_url + api_query
+        response = requests.get(url)
+        listing = response.json()
+        if not isinstance(listing, dict):
+            raise RuntimeError, 'Wrong API response: %s' % listing
+        package_url = listing['result']['url']
+        # Here's that RegEx.  Ugh.
+        package_id = re.findall('dataset/(.*?)/resource', package_url, re.DOTALL)
+        return package_id[0]
+
     database = pycsw_config.get('repository', 'database')
     table_name = pycsw_config.get('repository', 'table', 'records')
 
@@ -210,7 +242,7 @@ if __name__ == '__main__':
     elif arg.command == 'load':
         load(pycsw_config, ckan_url)
     elif arg.command == 'clear':
-        clear(pycsw_config)
+        clear_db(pycsw_config)
     else:
         print 'Unknown command {0}'.format(arg.command)
         sys.exit(1)

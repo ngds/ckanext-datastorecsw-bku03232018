@@ -1,29 +1,18 @@
-from ckan import logic
+import json
 import ckan.plugins as p
+from ckan import logic
 from ckan.logic import side_effect_free
-
 from ckan.lib.base import render
-from ckan.plugins import toolkit
 from shapely.geometry import asShape
 from pylons import config
-import json
 from dateutil import parser as date_parser
 
-@side_effect_free
-def datastore_package_show(context, data_dict):
-
-    id = data_dict['id']
-
-    if id:
-        pkg = logic.action.get.package_show(context, data_dict)
-        if not pkg:
-            raise p.toolkit.ObjectNotFound('Dataset not found')
-    else:
-        raise p.toolkit.ValidationError('Please provide a package ID')
-
-    return pkg
-
-# Lifted from ckanext-ngds/ckanext/ngds/csw/logic/view.py
+"""
+Lifted from ckanext-ngds/ckanext/ngds/csw/logic/view.py
+Kudos goes to Ryan Clark on this function and the template that it renders.  It takes any
+CKAN package in JSON format and parses it into a dictionary object that can be passed into
+a Jinja2 template to render an ISO XML metadata record of the package.
+"""
 @side_effect_free
 def iso_metadata(context, data_dict):
     """
@@ -85,7 +74,7 @@ def iso_metadata(context, data_dict):
     faceted_ones = [t for t in pkg.get("tags", []) if t.get("vocabulary_id") is not None]
     pkg["additional"]["facets"] = {}
     for faceted_tag in faceted_ones:
-        vocab = toolkit.get_action("vocabulary_show")(None, {"id": faceted_tag.get("vocabulary_id", "")})
+        vocab = p.toolkit.get_action("vocabulary_show")(None, {"id": faceted_tag.get("vocabulary_id", "")})
         vocab_name = vocab.get("name", None)
         if vocab_name is not None and vocab_name in pkg["additional"]["facets"]:
             pkg["additional"]["facets"][vocab_name].append(faceted_tag.get("display_name"))
