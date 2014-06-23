@@ -20,6 +20,7 @@ database.  Developers looking to load harvested metadata into PyCSW should use
 ####Dependencies
 * CKAN >= v2.0 with datastore extension enabled
 * PyCSW >= v1.8.0
+
 Although it's not required, you should probably also have either the `datapusher` or `datastorer` extension installed
 and enabled.  These extensions are used for uploading data into the datastore.
 
