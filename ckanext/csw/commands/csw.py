@@ -55,6 +55,6 @@ class Pycsw(script.command.Command):
             ckan_url = self.options.ckan_url.rstrip('/') + '/'
             datastore_pycsw.load(config, ckan_url)
         elif cmd == 'clear':
-            datastore_pycsw.clear(config)
+            datastore_pycsw.clear_db(config)
         else:
             print 'Command %s not recognized' % cmd

@@ -40,12 +40,12 @@ def clear_db(pycsw_config):
     @param pycsw_config: pycsw.cfg file that should have been configured upon installing
     PyCSW.  Should contain auth information about the database to connect to.
     """
-    from sqlalchemy import create_engine, Metadata, Table
+    from sqlalchemy import create_engine, MetaData, Table
     database = pycsw_config.get('repository', 'database')
     table_name = pycsw_config.get('repository', 'table', 'record')
     log.debug('Creating engine')
     engine = create_engine(database)
-    records = Table(table_name, Metadata(engine))
+    records = Table(table_name, MetaData(engine))
     records.delete().execute()
     log.info('Table cleared')
 
