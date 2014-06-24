@@ -66,3 +66,13 @@ ex: paster datastore-pycsw setup -p src/ckan/pycsw.cfg
 datastore-pycsw load [-p] [-u]
 ex: paster datastore-pycsw load -p src/ckan/pycsw.cfg -u http://ckan.instance.org
 ```
+
+####Tests
+Make sure to update the `ckanext-datastorecsw/test.ini` configuration before running any tests.  Either point it to
+inherit your main CKAN configuration file or create a new one.  Note that the CKAN and datastore databases will be 
+wiped clean if the tests are run with the main CKAN configuration file.
+```
+# Run tests
+cd ckanext-datastorecsw
+nosetests --ckan --with-pylons=test.ini tests
+```

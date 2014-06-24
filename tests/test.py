@@ -1,4 +1,3 @@
-import json
 import nose
 import paste.fixture
 import pylons.test
@@ -44,17 +43,12 @@ class TestDatastoreCswPlugin(tests.WsgiAppCase):
         plugins.unload('datastore')
         plugins.unload('datastorecsw')
 
-    def test_create_datastore_resource_in_package(self):
+    def test_ping_package_iso_url(self):
         package = model.Package.get('annakarenina')
-        data = {'resource': {'package_id': package.id}}
-        postparams = '%s=1' % json.dumps(data)
-        auth = {'Authorization': str(self.sysadmin_user.apikey)}
-        res = self.app.post('/api/action/datastore_create', params=postparams,
-                            extra_environ=auth, status=200)
-        res_dict = json.loads(res.body)
-        assert 'resource_id' in res_dict['result']
-        assert len(model.Package.get('annakarenina').resources) == 3
+        path = '/package_iso/object/%s' % package.id
+        self.app.get(path, status=200)
 
-        res = tests.call_action_api(self.app, 'resource_show',
-                                    id=res_dict['result']['resource_id'])
-        assert res['url'] == '/datastore/dump/' + res['id'], res
+    def test_ping_iso_metadata_action(self):
+        package = model.Package.get('annakarenina')
+        tests.call_action_api(self.app, 'iso_metadata', id=package.id)
+
