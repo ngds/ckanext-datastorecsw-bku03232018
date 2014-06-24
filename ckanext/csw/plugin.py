@@ -16,7 +16,6 @@ class DatastoreCSW(p.SingletonPlugin):
     p.implements(p.IAuthFunctions)
     p.implements(p.IRoutes, inherit=True)
     p.implements(p.IResourceUrlChange)
-    p.implements(p.IResourceController, inherit=True)
 
     # Program crashes without this empty function...
     def configure(self, config):
