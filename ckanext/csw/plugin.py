@@ -1,4 +1,5 @@
 import ckan.plugins as p
+import ckan.model as model
 import ckanext.csw.logic.action as action
 
 
@@ -43,3 +44,22 @@ class DatastoreCSW(p.SingletonPlugin):
     # be able to view the ISO records
     def get_auth_functions(self):
         return {}
+
+    # Lifted this function from ckan/ckanext/datastore.  We need it for testing purposes
+    # because we need to create data to use in the tests
+    def notify(self, entity, operation=None):
+        if not isinstance(entity, model.Package):
+            return
+        if operation == model.domain_object.DomainObjectOperation.changed:
+            context = {'model': model, 'ignore_auth': True}
+            if entity.private:
+                func = p.toolkit.get_action('datastore_make_private')
+            else:
+                func = p.toolkit.get_action('datastore_make_public')
+            for resource in entity.resources:
+                try:
+                    func(context, {
+                        'connection_url': self.write_url,
+                        'resource_id': resource.id})
+                except p.toolkit.ObjectNotFound:
+                    pass
