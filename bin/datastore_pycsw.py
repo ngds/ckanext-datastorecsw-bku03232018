@@ -104,6 +104,10 @@ def load(pycsw_config, ckan_url):
         listing = response.json()
         if not isinstance(listing, dict):
             raise RuntimeError, 'Wrong API response: %s' % listing
+        # skip Authorization Error, most likely due to deleted packages.
+        if 'error' in listing \
+            and "Authorization Error" == listing['error']['__type']:
+            return None
         package_url = listing['result']['url']
         # Here's that RegEx.  Ugh.
         package_id = re.findall('dataset/(.*?)/resource', package_url, re.DOTALL)
@@ -162,6 +166,10 @@ def load(pycsw_config, ckan_url):
         listing = response.json()
         if not isinstance(listing, dict):
             raise RuntimeError, 'Wrong API response: %s' % listing
+        # skip Not Found Error, most likely due to deleted packages.
+        if 'error' in listing \
+            and "Not Found Error" == listing['error']['__type']:
+            continue
         result = listing['result']
         gathered_records[result['id']] = {
             'metadata_modified': result['metadata_modified'],
