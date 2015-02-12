@@ -183,17 +183,22 @@ def load(pycsw_config, ckan_url):
     ))
 
     existing_records = {}
+    skipped_records = {}
 
-    query = repo.session.query(repo.dataset.ckan_id, repo.dataset.ckan_modified)
+    query = repo.session.query(repo.dataset.ckan_id, repo.dataset.ckan_modified, repo.dataset.type)
     for row in query:
         existing_records[row[0]] = row[1]
+        # skip records loaded by pycsw
+        # TODO is empty type an valid criteria?
+        if row[2]:
+            skipped_records[row[0]] = row[1]
     repo.session.close()
 
     new = set(gathered_records) - set(existing_records)
-    deleted = set(existing_records) - set(gathered_records)
+    deleted = set(existing_records) - set(skipped_records) - set(gathered_records)
     changed = set()
 
-    for key in set(gathered_records) & set(existing_records):
+    for key in set(gathered_records) & (set(existing_records) - set(skipped_records)):
         if gathered_records[key]['metadata_modified'] > existing_records[key]:
             changed.add(key)
 
